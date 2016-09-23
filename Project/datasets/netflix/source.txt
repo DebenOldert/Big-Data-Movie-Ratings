@@ -1,0 +1,4 @@
+Netflix dataset ±100.000.000 ratings (Yep that’s correct 100 million)
+
+link:
+https://www.igvita.com/downloads/Netflix-igvita.zip
