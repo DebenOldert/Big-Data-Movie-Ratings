@@ -28,10 +28,10 @@ imdb <- mutate(imdb, title = paste(title, " (", year, ")", sep = ""))
 print("DONE")
 
 print("Prepairing GroupLens...")
-groupLens_movie <- read.csv(returnPath("datasets/groupLens/movies_frmt.csv"))
-groupLens_movie <- select(tbl_df(groupLens_movie), movieId, title, year)
+groupLens_movie <- read.csv(returnPath("datasets/groupLens/movies.csv"))
+groupLens_movie <- select(tbl_df(groupLens_movie), movieId, title)
 # Extract the year
-#groupLens_movie <- mutate(groupLens_movie, year = as.integer(str_match(title, "([0-9]{4})")[,1]))
+groupLens_movie <- mutate(groupLens_movie, year = as.integer(str_match(title, "([0-9]{4})")[,1]))
 
 groupLens_rating <- read.csv(returnPath("datasets/groupLens/ratings.csv"))
 groupLens_rating <- tbl_df(groupLens_rating)
@@ -98,7 +98,6 @@ for (i in 1:nrow(netflix_movie)) {
 remove(netflix_movie)
 remove(row)
 remove(i)
-remove(wd)
 
 print("DONE")
 
@@ -127,24 +126,68 @@ netflix_year_avg <- netflix %>%
   group_by(year) %>%
   summarise(rating = mean(rating, na.rm = TRUE) * 2)
 
-plot(imdb_year_avg,
+
+# imdb =>       rating.x
+# groupLens =>  rating.y
+# netflix =>    rating
+
+yearList <- merge(imdb_year_avg, groupLens_year_avg, by = "year")
+yearList <- merge(yearList, netflix_year_avg, by = "year")
+yearList <- mutate(yearList, mean = ((rating + rating.x + rating.y) / 3))
+
+png(filename=returnPath("output/1.png"), height = 400, width = 900, bg = "white")
+
+plot(yearList$rating.x,
      type = "l",
-     ylim = c(0, 10),
+     ylim = c(0, y),
      col = color[1],
      axes = F,
      ann = T,
      xlab = "Years",
      ylab = "Avg. rating",
-     cex.lab=0.8, lwd=2)
+     cex.lab=0.8,
+     lwd=2
+     )
+axis(1, at=1:length(yearList$year), labels = yearList$year, pos = 0)
+axis(2, las = 1, at = 2*0:y, pos = 1)
 
-#text(axTicks(1), par("usr")[3] - 2, srt=45, adj = 1, labels = x_min:x_max, xpd=T, cex=0.8)
+lines(yearList$rating.y,
+      type = "l",
+      pch=23,
+      lty = 2,
+      col = color[2],
+      lwd = 2
+      )
+lines(yearList$rating,
+      type = "l",
+      pch=23,
+      lty = 3,
+      col = color[3],
+      lwd = 2
+      )
+# lines(yearList$mean,
+#       type = "l",
+#       pch=23,
+#       lty = 4,
+#       col = "yellow",
+#       lwd = 2
+# )
 
-box()
+legend(1, 10, set_names, cex = 0.8, col = color, lty=1:3, lwd = 2, bty="n")
 
-lines(groupLens_year_avg, type = "l", lty = 2, lwd = 2, col = color[2])
-lines(netflix_year_avg, type = "l", lty = 3, lwd = 2, col = color[3])
+dev.off();
 
-legend("topleft", set_names, cex = 0.8, col = color, lty=1:3, lwd = 2, bty="n")
+print("In what year are the ratings the highest?")
+
+sorted <- arrange(yearList, desc(mean))
+highest <- sorted[1,]
+print(paste("That was in:", highest$year, "Score:", highest$mean))
+
+# Cleanup
+remove(sorted)
+remove(highest)
+
+print("Working on question no. 2...")
 
 
 
