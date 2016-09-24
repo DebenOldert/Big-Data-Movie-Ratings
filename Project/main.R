@@ -47,7 +47,7 @@ remove(groupLens_movie)
 print("DONE")
 
 print("Prepairing Netflix...")
-# Gonna be a clusterfuck w/ 2GB data (±100 million reviews)
+# Gonna be a clusterf*ck w/ 2GB data (±100 million reviews)
 netflix_movie <- read.csv(returnPath("datasets/netflix/movie_titles.csv"))
 netflix_movie <- select(tbl_df(netflix_movie), movieId, title, year)
 netflix_movie <- mutate(netflix_movie, title_frmt = paste(title, " (", year, ")", sep = ""))
@@ -57,10 +57,23 @@ netflix <- data.frame(title_frmt = character(0), year = integer(0), rating = num
 
 # We need to loop through every movieId to find its .csv file
 # Then we calculate the average rating for the movie and store it in a new data.frame
-for (i in 1:nrow(netflix_movie)) {
+percent_ <- 0
+max_ <- nrow(netflix_movie)
+for (i in 1:max_) {
   row <- netflix_movie[i,]
 
-  print(i)
+  # Since this takes a long time we print the percentage so you know it's still running
+  p_ <- as.integer((i / max_) * 100)
+  if(p_ > percent_) {
+    print(
+      paste(
+        p_,
+        "%",
+        sep = ""
+      )
+    )
+    percent_ <- p_
+  }
 
   # Format the file name
   # E.G:
@@ -86,18 +99,27 @@ for (i in 1:nrow(netflix_movie)) {
   netflix_rating <- summarise(netflix_rating, ratings = mean(rating, na.rm = TRUE))
 
   # Append result to the netflix table
-  netflix <- bind_rows(netflix, data.frame(title_frmt = as.character(row$title_frmt), year = as.integer(as.character(row$year)), rating = netflix_rating$ratings))
+  suppressWarnings(netflix <- bind_rows(netflix,
+                                       data.frame(title_frmt = as.character(row$title_frmt),
+                                                  year = as.integer(as.character(row$year)),
+                                                  rating = netflix_rating$ratings
+                                                  )
+                                       )
+                  )
 
   # Cleanup
   remove(csv_)
   remove(netflix_rating)
   remove(j)
+  remove(p_)
 }
 
 # Cleanup
 remove(netflix_movie)
 remove(row)
 remove(i)
+remove(percent_)
+remove(max_)
 
 print("DONE")
 
@@ -110,13 +132,15 @@ y = 10
 
 x_min <- min(min(imdb$year, na.rm = TRUE), min(groupLens$year, na.rm = TRUE), min(netflix$year, na.rm = TRUE))
 x_max <- max(max(imdb$year, na.rm = TRUE), max(groupLens$year, na.rm = TRUE), max(netflix$year, na.rm = TRUE))
-# Define colors
 
+# Define colors
 color <- rainbow(3)
 
+# Calculate average score for each year per provider
+# Make all scores from 1-10
 imdb_year_avg <- imdb %>%
-                group_by(year) %>%
-                summarise(rating = mean(rating, na.rm = TRUE))
+  group_by(year) %>%
+  summarise(rating = mean(rating, na.rm = TRUE))
 
 groupLens_year_avg <- groupLens %>%
   group_by(year) %>%
@@ -131,12 +155,15 @@ netflix_year_avg <- netflix %>%
 # groupLens =>  rating.y
 # netflix =>    rating
 
+# Merge all the average so we only have years where all 3 provider have data from
 yearList <- merge(imdb_year_avg, groupLens_year_avg, by = "year")
 yearList <- merge(yearList, netflix_year_avg, by = "year")
 yearList <- mutate(yearList, mean = ((rating + rating.x + rating.y) / 3))
 
+# Start the image output for question 1
 png(filename=returnPath("output/Q1.png"), height = 400, width = 900, bg = "white")
 
+# Create a line graph
 plot(yearList$rating.x,
      type = "l",
      ylim = c(0, y),
@@ -149,9 +176,12 @@ plot(yearList$rating.x,
      lwd=2,
      main = "In what movie release year where the average ratings the highest?"
      )
+
+# Format the X and Y axis
 axis(1, at=1:length(yearList$year), labels = yearList$year, pos = 0)
 axis(2, las = 1, at = 2*0:y, pos = 1)
 
+# Add the other lines (grouplens + netflix)
 lines(yearList$rating.y,
       type = "l",
       pch=23,
@@ -166,6 +196,9 @@ lines(yearList$rating,
       col = color[3],
       lwd = 2
       )
+
+# This is the mean line (average of all 3 providers)
+# Uncomment below to see the result as a 4th line
 # lines(yearList$mean,
 #       type = "l",
 #       pch=23,
@@ -173,10 +206,17 @@ lines(yearList$rating,
 #       col = "yellow",
 #       lwd = 2
 # )
+
+# Sort the dataframe on descending the mean column (highest mea above)
 sorted <- arrange(yearList, desc(mean))
+
+# Get the first row (highest)
 highest <- sorted[1,]
+
+# Round the mean to 3 digits
 highest$mean <- round(highest$mean, digits = 3)
 
+# Add point in the line graph to show the point with the highest rating
 points(
   sum(
     between(sorted$year, min(sorted$year),highest$year)
@@ -186,6 +226,8 @@ points(
   lwd = 2,
   cex = 2
   )
+
+# Display the rating above the point we just created
 text(
   sum(
     between(sorted$year, min(sorted$year),highest$year)
@@ -193,6 +235,8 @@ text(
   highest$mean + 0.7,
   labels = highest$mean
 )
+
+# Answer the question
 text(
   50,
   10,
@@ -201,10 +245,14 @@ text(
     highest$year
   )
 )
+
+# Draw a f*cking legend (not a picute of me)
 legend(1, 3, set_names, cex = 0.8, col = color, lty=1:3, lwd = 2, bty="n")
 
-dev.off();
+# Save the image
+suppressMessages(dev.off())
 
+# Pint question + answer to console
 print("In what year are the ratings the highest?")
 
 print(paste("That was in:", highest$year, "Score:", highest$mean))
@@ -213,16 +261,21 @@ print(paste("That was in:", highest$year, "Score:", highest$mean))
 remove(sorted)
 remove(highest)
 
+# Do question no. 2
 print("Working on question no. 2...")
 
+# Get for each provider the mean of all ratings and round to 3 digits
 netflix_ <- round(mean(yearList$rating), digits = 3)
 imdb_ <- round(mean(yearList$rating.x), digits = 3)
 groupLens_ <- round(mean(yearList$rating.y), digits = 3)
 
+# Put 'em in a vector
 vct <- c(imdb_, groupLens_, netflix_)
 
+# Start image output for question 2
 png(filename=returnPath("output/Q2.png"), height = 500, width = 450, bg = "white")
 
+# Create a new bar graph
 barplot(
   vct,
   col = color,
@@ -234,17 +287,27 @@ barplot(
   main = "Which provider has the highest avrerage score?"
   )
 
+# Print the mean rating for each provider above the bar
 text((1 - 0.3), (imdb_ + 0.2), labels = imdb_, col = color[1])
 text((2 - 0.1), (groupLens_ + 0.2), labels = groupLens_, col = color[2])
 text((3 + 0.1), (netflix_ + 0.2), labels = netflix_, col = color[3])
 
+# Asnwer the question
 text(1.5, y - 1, labels = paste("Provider with hightest average score is:", set_names[which.max(vct)]))
 
-dev.off()
+# Save the image
+suppressMessages(dev.off())
+
+# Print the question + answer
+print("Which provider has the highest avrerage score?")
+
+print(paste("Provider with hightest average score is:", set_names[which.max(vct)]))
 
 # Cleanup
-
 remove(netflix_)
 remove(groupLens_)
 remove(imdb_)
 remove(vct)
+
+print("You can find the graphs in the output folder.")
+
