@@ -53,7 +53,7 @@ netflix_movie <- select(tbl_df(netflix_movie), movieId, title, year)
 netflix_movie <- mutate(netflix_movie, title_frmt = paste(title, " (", year, ")", sep = ""))
 
 # Create new and empty dataframe for final results
-netflix <- data.frame(title_frmt = character(0), year = integer(0), rating = numeric(0))
+netflix <- data.frame(title = character(0), year = integer(0), rating = numeric(0))
 
 # We need to loop through every movieId to find its .csv file
 # Then we calculate the average rating for the movie and store it in a new data.frame
@@ -100,7 +100,7 @@ for (i in 1:max_) {
 
   # Append result to the netflix table
   suppressWarnings(netflix <- bind_rows(netflix,
-                                       data.frame(title_frmt = as.character(row$title_frmt),
+                                       data.frame(title = as.character(row$title_frmt),
                                                   year = as.integer(as.character(row$year)),
                                                   rating = netflix_rating$ratings
                                                   )
@@ -309,5 +309,69 @@ remove(groupLens_)
 remove(imdb_)
 remove(vct)
 
-print("You can find the graphs in the output folder.")
+print("Working on question 3...")
 
+# Create a new list and order it by rating of netflix desc
+movieList <- merge(imdb, groupLens, by = "title")
+movieList <- merge(movieList, netflix, by = "title")
+movieList <- select(movieList, title, rating.x, rating.y, rating)
+movieList <- mutate(movieList, rating.y = rating.y * 2, rating = rating *2)
+movieList <- arrange(movieList, desc(rating))
+
+# Get the top 5 of the list
+top5 <- movieList[1:5,]
+
+# Put in a data frame with 3 rows where column name is movie title
+mrx5 <- data.frame(y = 1:3)
+
+# Insert data in data frame
+for (i in 1:nrow(top5)) {
+  row <- top5[i,]
+  mrx5[[row$title]] = c(
+    row$rating,
+    row$rating.x,
+    row$rating.y
+  )
+}
+# Delete empty row
+mrx5$y <- NULL
+
+# Start image output
+png(filename=returnPath("output/Q3.png"), height = 600, width = 600, bg = "white")
+
+# Plot the graph
+barplot(
+  as.matrix(mrx5),
+  beside = TRUE,
+  col = color,
+  ylim = c(0, 10),
+  names.arg = c("", "", "", "", ""),
+  main = "How much differce the top 5 of Netflix with other providers?",
+  ylab = "Score"
+  )
+
+# Add movie titles below the graph
+text(
+  c(2.5, 6.5, 10.5, 14.5, 18.5),
+  par("usr")[3] - 0.3,
+  srt=20,
+  adj=1,
+  labels=names(mrx5),
+  xpd=T,
+  cex=0.6
+  )
+
+# Add legend to graph
+legend(6, 10, rev(set_names), cex = 0.8, fill = color, bty="n")
+
+# Save the image
+suppressMessages(dev.off())
+
+# Cleanup
+remove(mrx5)
+remove(top5)
+remove(i)
+
+print("The answer of question 3 is in graph Q3")
+
+print("You can find the graphs in the output folder.")
