@@ -1,4 +1,4 @@
-# (c) Deben Oldert
+# (c) Deben Oldert, Rens Zuurbier
 # Checks the difference between multiple movie rating from different websites
 
 # Load libraries
@@ -344,7 +344,7 @@ barplot(
   as.matrix(mrx5),
   beside = TRUE,
   col = color,
-  ylim = c(0, 10),
+  ylim = c(0, y),
   names.arg = c("", "", "", "", ""),
   main = "How much differce the top 5 of Netflix with other providers?",
   ylab = "Score"
